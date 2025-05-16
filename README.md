@@ -3,4 +3,4 @@ This is Tunex.
 
 Website is coming soon.
 
-Code is ready
+Code are ready
