@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+/// @title Tunex Node Registry
+/// @notice Manages registration and status of Tunex bandwidth provider nodes
+contract TunexRegistry {
+    /// @dev Stores information about a provider node
+    struct NodeInfo {
+        address owner;       // Node operator’s Ethereum address
+        string endpoint;     // Network endpoint (e.g., IP:port or domain)
+        uint256 pricePerGB;  // Fee per GB of data, denominated in wei
+        bool active;         // Whether the node is currently accepting traffic
+    }
+
+    /// @dev Mapping from node address to its registered info
+    mapping(address => NodeInfo) public nodes;
+
+    /// @notice Emitted when a node registers or updates price
+    event NodeRegistered(
+        address indexed node,
+        string endpoint,
+        uint256 pricePerGB
+    );
+
+    /// @notice Emitted when a node’s active status changes
+    event NodeStatusUpdated(
+        address indexed node,
+        bool active
+    );
+
+    /// @notice Register or update your node’s endpoint and price
+    /// @param endpoint Network location of your node
+    /// @param pricePerGB Cost per gigabyte of data usage
+    function registerNode(
+        string calldata endpoint,
+        uint256 pricePerGB
+    )
+        external
+    {
+        nodes[msg.sender] = NodeInfo(
+            msg.sender,
+            endpoint,
+            pricePerGB,
+            true
+        );
+        emit NodeRegistered(msg.sender, endpoint, pricePerGB);
+    }
+
+    /// @notice Toggle whether your node is available for routing
+    /// @param active True to activate, false to deactivate
+    function setNodeStatus(bool active) external {
+        require(
+            nodes[msg.sender].owner == msg.sender,
+            "TunexRegistry: caller is not the node owner"
+        );
+        nodes[msg.sender].active = active;
+        emit NodeStatusUpdated(msg.sender, active);
+    }
+}
+
+/// @title Tunex Payment Channel (Simple)
+/// @notice Demonstrates a minimal deposit/claim mechanism for data usage payments
+contract TunexChannel {
+    /// @dev Tracks each user’s deposited balance
+    mapping(address => uint256) public balances;
+
+    /// @notice Deposit ETH to fund your data usage
+    function deposit() external payable {
+        balances[msg.sender] += msg.value;
+    }
+
+    /// @notice Claim payment from a user’s balance to a provider
+    /// @param provider Address of the data provider node
+    /// @param amount Amount in wei to transfer
+    function claim(address provider, uint256 amount) external {
+        require(
+            balances[msg.sender] >= amount,
+            "TunexChannel: insufficient balance"
+        );
+        balances[msg.sender] -= amount;
+        payable(provider).transfer(amount);
+    }
+}
