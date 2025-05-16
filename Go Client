@@ -1,0 +1,60 @@
+package main
+
+import (
+    "fmt"
+    "net"
+    "time"
+
+    "github.com/tunex/protos" // Protocol buffer definitions for Tunex ticket
+    "github.com/tunex/utils"  // Utility functions (attach/parse tickets)
+)
+
+// measureBandwidth runs a bandwidth test against the node endpoint.
+// Returns upload and download speeds in Mbps.
+func measureBandwidth(endpoint string) (uploadMbps, downloadMbps uint64, err error) {
+    // TODO: Replace with actual iperf3 or custom measurement logic
+    uploadMbps = 100  // Example upload speed
+    downloadMbps = 200 // Example download speed
+    return uploadMbps, downloadMbps, nil
+}
+
+// sendPacket attaches a payment ticket to the data packet and transmits it.
+func sendPacket(conn net.Conn, payload []byte, ticket protos.Ticket) error {
+    packet := utils.AttachTicket(payload, ticket)
+    _, err := conn.Write(packet)
+    return err
+}
+
+func main() {
+    // Node endpoint to test and send traffic through
+    endpoint := "node1.tunex.net:51820"
+
+    // Measure available bandwidth
+    up, down, err := measureBandwidth(endpoint)
+    if err != nil {
+        fmt.Println("Error measuring bandwidth:", err)
+        return
+    }
+    fmt.Printf("Measured bandwidth → Upload: %d Mbps, Download: %d Mbps\n", up, down)
+
+    // Establish a UDP connection to the node
+    conn, err := net.Dial("udp", endpoint)
+    if err != nil {
+        fmt.Println("Failed to connect to node:", err)
+        return
+    }
+    defer conn.Close()
+
+    // Create a payment ticket for the measured upload volume
+    ticket := protos.Ticket{
+        Provider:   "0xNodeAddress",                                 // Node’s Ethereum address
+        AmountWei:  up * 1e15,                                       // Charge per Mbps (example rate)
+        Expiration: uint64(time.Now().Add(1 * time.Hour).Unix()),   // Ticket expiry timestamp
+    }
+
+    // Payload data to send
+    data := []byte("Hello from Tunex client!")
+    if err := sendPacket(conn, data, ticket); err != nil {
+        fmt.Println("Error sending packet:", err)
+    }
+}
